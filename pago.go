@@ -43,24 +43,32 @@ func (p *Pago[T]) RemoveSorter(key string) *Pago[T] {
 	return p
 }
 
-func (p *Pago[T]) RemoveFirstBy(selected func(t T) bool) *Pago[T] {
+func (p *Pago[T]) RemoveFirstBy(selectors ...func(t T) bool) *Pago[T] {
+next:
 	for k, v := range p.keyed {
-		if selected(v) {
-			delete(p.keyed, k)
-			p.keyManager.Restore(k)
-			p.dirty = true
-			break
+		for _, selected := range selectors {
+			if !selected(v) {
+				continue next
+			}
 		}
+		delete(p.keyed, k)
+		p.keyManager.Restore(k)
+		p.dirty = true
+		break
 	}
 	return p
 }
 
-func (p *Pago[T]) RemoveAllBy(selected func(t T) bool) *Pago[T] {
+func (p *Pago[T]) RemoveAllBy(selectors ...func(t T) bool) *Pago[T] {
 	removes := make([]int, 0)
+next:
 	for k, v := range p.keyed {
-		if selected(v) {
-			removes = append(removes, k)
+		for _, selected := range selectors {
+			if !selected(v) {
+				continue next
+			}
 		}
+		removes = append(removes, k)
 	}
 	if len(removes) > 0 {
 		p.dirty = true
@@ -87,8 +95,7 @@ func (p *Pago[T]) Adds(items ...T) *Pago[T] {
 	return p
 }
 
-func (p *Pago[T]) Sorted(key string) ([]T, error) {
-	results := make([]T, 0)
+func (p *Pago[T]) Sorted(key string, selectors ...func(t T) bool) ([]T, error) {
 	// FIXME: optimize
 	sorter, ok := p.sorters[key]
 	if !ok {
@@ -97,20 +104,28 @@ func (p *Pago[T]) Sorted(key string) ([]T, error) {
 	if p.dirty {
 		p.sortAll()
 	}
+	results := make([]T, 0)
+next:
 	for _, k := range sorter.sorted {
-		results = append(results, sorter.pago.keyed[k])
+		v := sorter.pago.keyed[k]
+		for _, selected := range selectors {
+			if !selected(v) {
+				continue next
+			}
+		}
+		results = append(results, v)
 	}
 	return results, nil
 }
 
 // Page index starts from 1, but not 0.
 // If index is greater than the total page count, the last page will be returned.
-func (p *Pago[T]) Paged(key string, size, index int) ([]T, error) {
+func (p *Pago[T]) Paged(key string, size, index int, selectors ...func(t T) bool) ([]T, error) {
 	var start int
 	if index > 1 {
 		start = size * (index - 1)
 	}
-	results, err := p.Sorted(key)
+	results, err := p.Sorted(key, selectors...)
 	if err != nil {
 		return nil, err
 	}
