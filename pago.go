@@ -1,7 +1,9 @@
 package pago
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 )
@@ -119,24 +121,31 @@ next:
 }
 
 // Page index starts from 1, but not 0.
+//
+// If index is lower than 1, the first page will be returned.
 // If index is greater than the total page count, the last page will be returned.
-func (p *Pago[T]) Paged(key string, size, index int, selectors ...func(t T) bool) ([]T, error) {
-	var start int
-	if index > 1 {
-		start = size * (index - 1)
+//
+// The returned bool value describes if the slice points to the last page or not.
+func (p *Pago[T]) Paged(key string, size, index int, selectors ...func(t T) bool) ([]T, bool, error) {
+	if size < 1 {
+		return nil, false, errors.New("Page size can not be lower than 1")
 	}
 	results, err := p.Sorted(key, selectors...)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	for start >= len(results) {
-		start -= size
-		if start < 0 {
-			start = 0
-			break
+	var lastPage bool
+	if pageCount := int(math.Ceil(float64(len(results)) / float64(size))); index > pageCount {
+		index = pageCount
+		if pageCount > 0 {
+			lastPage = true
 		}
 	}
-	return results[start:min(start+size, len(results))], nil
+	if index < 1 {
+		index = 1
+	}
+	start := size * (index - 1)
+	return results[start:min(start+size, len(results))], lastPage, nil
 }
 
 func NewPago[T any](items ...T) *Pago[T] {
