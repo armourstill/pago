@@ -76,7 +76,7 @@ func TestPage(t *testing.T) {
 		{size: 100, index: 3, expectedOrder: []int{1, 2, 3, 4, 5, 6}},
 	}
 	for _, pt := range pageTests {
-		paged, err := paginator.Paged("test", pt.size, pt.index)
+		paged, _, err := paginator.Paged("test", pt.size, pt.index)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -98,27 +98,39 @@ func TestRemove(t *testing.T) {
 	paginator.AddSorter("test", sorter)
 
 	paginator.RemoveFirstBy(func(t *testElem) bool { return t.key == 2 })
-	paged, err := paginator.Paged("test", 3, 1)
+	index := 1
+	paged, lastPage, err := paginator.Paged("test", 3, index)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if lastPage {
+		t.Errorf("Page %d should not be the last page", index)
 	}
 	if err := checkOrdered([]int{1, 3, 3}, paged); err != nil {
 		t.Fatal(err)
 	}
 
+	index = 2
 	paginator.RemoveAllBy(func(t *testElem) bool { return t.key == 3 })
-	paged, err = paginator.Paged("test", 4, 2)
+	paged, lastPage, err = paginator.Paged("test", 4, index)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !lastPage {
+		t.Errorf("Index %d should point to the last page", index)
 	}
 	if err := checkOrdered([]int{1, 4}, paged); err != nil {
 		t.Fatal(err)
 	}
 
+	index = 3
 	paginator.RemoveAllBy(func(t *testElem) bool { return true })
-	paged, err = paginator.Paged("test", 4, 3)
+	paged, lastPage, err = paginator.Paged("test", 4, index)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if lastPage {
+		t.Error("There should be no page")
 	}
 	if err := checkOrdered([]int{}, paged); err != nil {
 		t.Fatal(err)
