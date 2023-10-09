@@ -3,7 +3,6 @@ package pago
 import (
 	"errors"
 	"fmt"
-	"math"
 	"sort"
 	"strconv"
 )
@@ -87,7 +86,7 @@ func (p *Pago[T]) Adds(items ...T) *Pago[T] {
 		p.dirty = true
 	}
 	for _, item := range items {
-		// KeyManager分配Key的一致性需要测试，可能出现意外的覆盖
+		// TODO: KeyManager分配Key的一致性需要测试，可能出现意外的覆盖
 		v := p.keyManager.Allocate()
 		if _, ok := p.keyed[v]; ok {
 			panic("Repeated key: " + strconv.Itoa(v))
@@ -124,28 +123,32 @@ next:
 //
 // If index is lower than 1, the first page will be returned.
 // If index is greater than the total page count, the last page will be returned.
-//
-// The returned bool value describes if the slice points to the last page or not.
-func (p *Pago[T]) Paged(key string, size, index int, selectors ...func(t T) bool) ([]T, bool, error) {
+func (p *Pago[T]) Paged(key string, size, index int, selectors ...func(t T) bool) ([]T, error) {
 	if size < 1 {
-		return nil, false, errors.New("Page size can not be lower than 1")
+		return nil, errors.New("Page size can not be lower than 1")
 	}
 	results, err := p.Sorted(key, selectors...)
 	if err != nil {
-		return nil, false, err
-	}
-	var lastPage bool
-	if pageCount := int(math.Ceil(float64(len(results)) / float64(size))); index > pageCount {
-		index = pageCount
-		if pageCount > 0 {
-			lastPage = true
-		}
+		return nil, err
 	}
 	if index < 1 {
 		index = 1
 	}
 	start := size * (index - 1)
-	return results[start:min(start+size, len(results))], lastPage, nil
+	return results[start:min(start+size, len(results))], nil
+}
+
+// Return the total page count by specified page size.
+// If page size is less than 1, then -1 will be returned.
+func (p *Pago[T]) Pages(size int) int {
+	if size < 1 {
+		return -1
+	}
+	pages := len(p.keyed) / size
+	if len(p.keyed)%size > 0 {
+		return pages + 1
+	}
+	return pages
 }
 
 func NewPago[T any](items ...T) *Pago[T] {
