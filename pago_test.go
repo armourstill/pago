@@ -65,11 +65,11 @@ func TestPage(t *testing.T) {
 	)
 	pago.AddSorter("test", sorter)
 
-	if pages := pago.Pages(2); pages != 3 {
-		t.Errorf("Total page num(size=3) should be 2, but actully %d", pages)
+	if pages := pago.Count(2); pages != 3 {
+		t.Errorf("Total page count(size=3) should be 2, but actully %d", pages)
 	}
-	if pages := pago.Pages(5); pages != 2 {
-		t.Errorf("Total page num(size=5) should be 2, but actully %d", pages)
+	if pages := pago.Count(5); pages != 2 {
+		t.Errorf("Total page count(size=5) should be 2, but actully %d", pages)
 	}
 
 	type pageTest struct {
@@ -80,6 +80,7 @@ func TestPage(t *testing.T) {
 		{size: 3, index: 1, expectedOrder: []int{1, 2, 3}},
 		{size: 4, index: 2, expectedOrder: []int{5, 6}},
 		{size: 4, index: 3, expectedOrder: []int{5, 6}},
+		{size: 4, index: 6, expectedOrder: []int{5, 6}},
 		{size: 100, index: 3, expectedOrder: []int{1, 2, 3, 4, 5, 6}},
 	}
 	for _, pt := range pageTests {
