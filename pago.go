@@ -135,20 +135,33 @@ func (p *Pago[T]) Paged(key string, size, index int, selectors ...func(t T) bool
 		index = 1
 	}
 	start := size * (index - 1)
-	return results[start:min(start+size, len(results))], nil
+	if start > len(results) {
+		start = len(results) / size * size
+	}
+	return results[start:min[int](start+size, len(results))], nil
 }
 
-// Return the total page count by specified page size.
+// Return the total page count by the specified page size and selectors.
 // If page size is less than 1, then -1 will be returned.
-func (p *Pago[T]) Pages(size int) int {
+func (p *Pago[T]) Count(size int, selectors ...func(t T) bool) int {
 	if size < 1 {
 		return -1
 	}
-	pages := len(p.keyed) / size
-	if len(p.keyed)%size > 0 {
-		return pages + 1
+	sum := 0
+next:
+	for _, v := range p.keyed {
+		for _, selected := range selectors {
+			if !selected(v) {
+				continue next
+			}
+		}
+		sum++
 	}
-	return pages
+	cnt := sum / size
+	if sum%size > 0 {
+		return cnt + 1
+	}
+	return cnt
 }
 
 func NewPago[T any](items ...T) *Pago[T] {
